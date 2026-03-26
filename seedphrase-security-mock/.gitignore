@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+target/
+pkg/
+dist/
+
+# Env & Locks
+.env*
+bun.lock*
+package-lock.json
+
+# Wasm generated files
+wasm-seed-vault/pkg/
+seed-ui/src/wasm/
+
+# Logs
+*.log
