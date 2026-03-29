@@ -1,0 +1,15 @@
+{
+  "name": "wasm-vault",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "wasm_vault_bg.wasm",
+    "wasm_vault.js",
+    "wasm_vault.d.ts"
+  ],
+  "main": "wasm_vault.js",
+  "types": "wasm_vault.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
