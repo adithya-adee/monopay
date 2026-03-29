@@ -6,6 +6,7 @@ export const generate_mnemonic: () => [number, number];
 export const generate_salt: () => [number, number];
 export const lock_vault: () => void;
 export const secure_sign: (a: number, b: number) => [number, number, number, number];
+export const sign_with_password: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const __wbindgen_exn_store: (a: number) => void;
 export const __externref_table_alloc: () => number;
 export const __wbindgen_externrefs: WebAssembly.Table;

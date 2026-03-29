@@ -1,7 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export function derive_key(password: string, salt: string): Uint8Array;
+export function derive_key(password: Uint8Array, salt: string): Uint8Array;
 
 /**
  * Generate 12 random words from the BIP-39 list using the bip39 crate.
@@ -24,6 +24,11 @@ export function lock_vault(): void;
  */
 export function secure_sign(tx_hash: Uint8Array): Uint8Array;
 
+/**
+ * SIGN + ZEROIZE in one atomic step to close the "Tick Gap"
+ */
+export function sign_with_password(password: Uint8Array, salt: string, tx_hash: Uint8Array): Uint8Array;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -33,6 +38,7 @@ export interface InitOutput {
     readonly generate_salt: () => [number, number];
     readonly lock_vault: () => void;
     readonly secure_sign: (a: number, b: number) => [number, number, number, number];
+    readonly sign_with_password: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;

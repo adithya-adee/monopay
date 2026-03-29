@@ -1,12 +1,12 @@
 /* @ts-self-types="./wasm_vault.d.ts" */
 
 /**
- * @param {string} password
+ * @param {Uint8Array} password
  * @param {string} salt
  * @returns {Uint8Array}
  */
 export function derive_key(password, salt) {
-    const ptr0 = passStringToWasm0(password, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const ptr0 = passArray8ToWasm0(password, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passStringToWasm0(salt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
@@ -76,6 +76,29 @@ export function secure_sign(tx_hash) {
     var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v2;
+}
+
+/**
+ * SIGN + ZEROIZE in one atomic step to close the "Tick Gap"
+ * @param {Uint8Array} password
+ * @param {string} salt
+ * @param {Uint8Array} tx_hash
+ * @returns {Uint8Array}
+ */
+export function sign_with_password(password, salt, tx_hash) {
+    const ptr0 = passArray8ToWasm0(password, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(salt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArray8ToWasm0(tx_hash, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.sign_with_password(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v4 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v4;
 }
 
 function __wbg_get_imports() {
