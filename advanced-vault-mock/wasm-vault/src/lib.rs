@@ -18,15 +18,19 @@ pub fn generate_mnemonic() -> String {
     mnemonic.to_string()
 }
 
+use lazy_static::lazy_static;
+use std::sync::Mutex;
+
 // ---------------------------------------------------------------------------
-// Internal Vault RAM — lives in Wasm linear memory, never exported to JS
+// Internal Vault RAM — safe global state via Mutex
 // ---------------------------------------------------------------------------
-static mut VAULT_KEY: [u8; 32] = [0u8; 32];
+lazy_static! {
+    static ref VAULT_KEY: Mutex<[u8; 32]> = Mutex::new([0u8; 32]);
+}
 
 #[wasm_bindgen]
-pub fn derive_key(password: &str, salt: &str) -> Result<Vec<u8>, JsValue> {
+pub fn derive_key(password: &[u8], salt: &str) -> Result<Vec<u8>, JsValue> {
     // 1. Prepare Argon2id
-    // Memory: 64MiB, Iterations: 3, Parallelism: 1 (safe for Wasm single thread)
     let argon2 = Argon2::new(
         argon2::Algorithm::Argon2id,
         argon2::Version::V0x13,
@@ -39,54 +43,81 @@ pub fn derive_key(password: &str, salt: &str) -> Result<Vec<u8>, JsValue> {
     // 3. Derive a 32-byte key
     let mut output = [0u8; 32];
     argon2.hash_password_into(
-        password.as_bytes(),
+        password, // Now using &[u8]
         salt_str.as_salt().as_str().as_bytes(),
         &mut output
     ).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    // 4. Store the key in the static internal vault (RAM)
-    unsafe {
-        VAULT_KEY.copy_from_slice(&output);
-    }
+    // 4. Store the key in the protected vault (RAM)
+    let mut key = VAULT_KEY.lock().map_err(|e| JsValue::from_str(&e.to_string()))?;
+    key.copy_from_slice(&output);
 
     // 5. Zeroize the temporary output buffer
     output.zeroize();
 
     // 6. Return the full key for demonstration purposes (Mock only)
-    unsafe {
-        Ok(VAULT_KEY.to_vec())
+    Ok(key.to_vec())
+}
+
+/// SIGN + ZEROIZE in one atomic step to close the "Tick Gap"
+#[wasm_bindgen]
+pub fn sign_with_password(password: &[u8], salt: &str, tx_hash: &[u8]) -> Result<Vec<u8>, JsValue> {
+    // 1. Derivation (Directly within this function)
+    let argon2 = Argon2::new(
+        argon2::Algorithm::Argon2id,
+        argon2::Version::V0x13,
+        argon2::Params::new(65536, 3, 1, None).map_err(|e| JsValue::from_str(&e.to_string()))?,
+    );
+    let salt_str = SaltString::from_b64(salt).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    
+    let mut derived_key = [0u8; 32];
+    argon2.hash_password_into(
+        password,
+        salt_str.as_salt().as_str().as_bytes(),
+        &mut derived_key
+    ).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    // 2. Sign
+    let mut signature = vec![0u8; 64];
+    for i in 0..32 {
+        signature[i] = tx_hash[i % tx_hash.len()] ^ derived_key[i];
+        signature[i+32] = tx_hash[(i+1) % tx_hash.len()] ^ !derived_key[i];
     }
+
+    // 3. IMMEDIATE ZEROIZATION of the key on the stack
+    derived_key.zeroize();
+
+    Ok(signature)
 }
 
 /// Sign a "transaction" hash using the internal key
 /// Returns a mock 64-byte signature
 #[wasm_bindgen]
 pub fn secure_sign(tx_hash: &[u8]) -> Result<Vec<u8>, JsValue> {
-    unsafe {
-        // Check if key is initialized (not all zeros)
-        if VAULT_KEY.iter().all(|&b| b == 0) {
-            return Err(JsValue::from_str("Vault is locked (no key in RAM)"));
-        }
-
-        // Mock Signature logic: Blake2b or simple HMAC simulation
-        // In a real app, this would use ed25519-dalek
-        let mut signature = vec![0u8; 64];
-        
-        // Simulating signing: XOR some of the key into the signature
-        for i in 0..32 {
-            signature[i] = tx_hash[i % tx_hash.len()] ^ VAULT_KEY[i];
-            signature[i+32] = tx_hash[(i+1) % tx_hash.len()] ^ !VAULT_KEY[i];
-        }
-
-        Ok(signature)
+    let key = VAULT_KEY.lock().map_err(|e| JsValue::from_str(&e.to_string()))?;
+    
+    // Check if key is initialized (not all zeros)
+    if key.iter().all(|&b| b == 0) {
+        return Err(JsValue::from_str("Vault is locked (no key in RAM)"));
     }
+
+    // Mock Signature logic: Blake2b or simple HMAC simulation
+    let mut signature = vec![0u8; 64];
+    
+    // Simulating signing: XOR some of the key into the signature
+    for i in 0..32 {
+        signature[i] = tx_hash[i % tx_hash.len()] ^ key[i];
+        signature[i+32] = tx_hash[(i+1) % tx_hash.len()] ^ !key[i];
+    }
+
+    Ok(signature)
 }
 
 /// Securely zero all sensitive internal buffers.
 #[wasm_bindgen]
 pub fn lock_vault() {
-    unsafe {
-        VAULT_KEY.zeroize();
+    if let Ok(mut key) = VAULT_KEY.lock() {
+        key.zeroize();
     }
 }
 

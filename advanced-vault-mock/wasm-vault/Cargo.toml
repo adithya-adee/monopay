@@ -11,6 +11,7 @@ wasm-bindgen = "0.2.92"
 argon2 = "0.5.3"
 password-hash = "0.5.0"
 zeroize = { version = "1.7.0", features = ["derive"] }
+lazy_static = "1.4.0"
 getrandom = { version = "0.2.12", features = ["js"] }
 bip39 = { version = "2.1.0", features = ["rand"] }
 subtle = "2.5.0"
